@@ -17,12 +17,20 @@ class CONSTANTS:
     ROUNDING_THRESHOLD = 0.001
 
 
-class COLORS:
-    WHITE = (0xff, 0xff, 0xff)
-    BG_BEIGE = (0xe8, 0xdc, 0xb5)
-    BLACK = (0x00, 0x00, 0x00)
-    BLUE = (0x41, 0x69, 0xe1)
-    RED = (0xed, 0x29, 0x39)
+COLORS = {
+    "WHITE": (0xff, 0xff, 0xff),
+    "BG_BEIGE": (0xe8, 0xdc, 0xb5),
+    "BLACK": (0x00, 0x00, 0x00),
+    "BLUE": (0x41, 0x69, 0xe1),
+    "RED": (0xed, 0x29, 0x39)
+}
+
+
+def convert(color: tuple[int, int, int]) -> str | None:
+    for name, c in COLORS.items():
+        if c == color:
+            return name
+    return None
 
 
 class Element:
@@ -36,8 +44,9 @@ class Element:
         return f"Element<valence_electrons={self.valence_electrons}>"
 
 
-class Atom:
+class Atom(pygame.sprite.Sprite):
     def __init__(self, element: Element, **kwargs):
+        super().__init__()
         self.id = "".join(random.choices(string.printable, k=12))
         self.element = element
 
@@ -52,6 +61,7 @@ class Atom:
 
         self.x = kwargs.get('x', 10)
         self.y = kwargs.get('y', 10)
+        self.rect = self.element.asset.get_rect(topleft=(self.x, self.y))
 
     @property
     def acceleration_mag(self) -> float:
@@ -70,7 +80,8 @@ class Atom:
         self.acceleration = self.acceleration_mag, value
 
     def render(self, surface):
-        surface.blit(self.element.asset, (self.x, self.y))
+        print(self.rect.x, self.rect.y)
+        surface.blit(self.element.asset, (self.rect.x, self.rect.y))
 
     def bond(self, other):
         self.bonded_atoms.append(other)
@@ -84,10 +95,11 @@ class Atom:
         return self.element.mass / r_2  # Returns M/r^2
 
     def fetch_direction(self, other) -> float:
-        delta_y = self.y - other.y
-        delta_x = self.x - other.x
+        delta_y = other.rect.y - self.rect.y
+        delta_x = other.rect.x - self.rect.x
         if not delta_y: delta_y = 0.0000001
         if not delta_x: delta_x = 0.0000001
+        print(f"Returning dir: {math.degrees(math.atan2(delta_y, delta_x))}")
         return math.degrees(math.atan2(delta_y, delta_x))
 
     def attractive_force(self) -> float | int:
@@ -124,6 +136,22 @@ class Atom:
         return self.id == other.id
 
 
+class PolyAtom:
+    def __init__(self, atoms: list[Atom]):
+        self.atoms = atoms
+        self.valence_electrons = sum([atom.element.valence_electrons for atom in atoms]) % 8
+        self.rect = self.atoms[0].rect.copy()
+        self.surface = None
+
+    def initialize_at(self):
+        self.rect = self.atoms[0].rect.copy()
+        for atom in self.atoms[1:]:
+            self.rect.union_ip(atom.rect)
+
+        self.surface = pygame.Surface(self.rect.size)
+        render(self.atoms, self.surface)
+
+
 def round_if_needed(val: float) -> float | int:
     if abs(round(val, 3) - val) <= CONSTANTS.ROUNDING_THRESHOLD:
         return round(val, 3)
@@ -148,9 +176,11 @@ def apply_gravity(atoms: list[Atom]):
         field = atom.attractive_force()
         for other in atoms:
             if other == atom: continue
-            delta = (abs(atom.x - other.x), abs(atom.y - other.y))
+            delta = (abs(atom.rect.x - other.rect.x), abs(atom.rect.y - other.rect.y))
             if (delta[0] ** 2 + delta[1] ** 2) ** 0.5 <= field:
-                other.acceleration = atom.fetch_force_at(delta), other.fetch_direction(atom)  # No idea if this is right
+                div = (bool(other.acceleration_dir)) + 1
+                other.acceleration = (other.acceleration_mag + atom.fetch_force_at(delta),
+                                      (other.acceleration_dir + other.fetch_direction(atom))/div)
 
 
 def apply_speed(atoms: list[Atom], time_period: float):
@@ -158,7 +188,8 @@ def apply_speed(atoms: list[Atom], time_period: float):
     Use formula v = u + at
     """
     for atom in atoms:
-        atom.velocity = atom.velocity + (atom.acceleration_mag * time_period)
+        print(f"velocity: {atom.velocity}")
+        atom.velocity += (atom.acceleration_mag * time_period)
 
 
 def update_atoms(atoms: list[Atom], time_period: float):
@@ -168,6 +199,6 @@ def update_atoms(atoms: list[Atom], time_period: float):
         y' = y + v * sin(theta) * T
     """
     for atom in atoms:
-        atom.x = atom.x + atom.velocity * math.cos(atom.acceleration_dir) * time_period
-        atom.y = atom.y + atom.velocity * math.sin(atom.acceleration_dir) * time_period
-        atom.velocity += atom.acceleration_mag
+        print(f"{convert(atom.element.color)} has dir: {atom.acceleration_dir}")
+        atom.rect.x = atom.rect.x + atom.velocity * -math.cos(atom.acceleration_dir) * time_period
+        atom.rect.y = atom.rect.y + atom.velocity * -math.sin(atom.acceleration_dir) * time_period

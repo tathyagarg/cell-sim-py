@@ -7,28 +7,28 @@ from data import *
 # CONSTANTS
 FPS = 30
 clock = pygame.time.Clock()
-tick = 30
+tick = 50
 
 # Pygame initialization
 pygame.init()
-surface = pygame.display.set_mode((680, 420))
+surface = pygame.display.set_mode((1920, 1080))
 pygame.display.set_caption("Cell Simulation")
 
-C = Element(COLORS.BLACK, 4, 1000)
-H = Element(COLORS.WHITE, 1, 1)
-N = Element(COLORS.BLUE, 5, 14)
-O = Element(COLORS.RED, 6, 16)
+C = Element(COLORS["BLACK"], 4, 10000)
+H = Element(COLORS["WHITE"], 1, 1)
+N = Element(COLORS["BLUE"], 5, 14)
+O = Element(COLORS["RED"], 6, 16)
 
-c = Atom(C)
-h = Atom(H, y=50)
-n = Atom(N, y=100)
-o = Atom(O, y=150)
+c = Atom(C, x=1000, y=500)
+h = Atom(H, x=900, y=550)
+n = Atom(N, x=1100, y=600)
+o = Atom(O, x=1000, y=650)
 
 atoms = [c, h, n, o]
 
 
 while True:
-    surface.fill(COLORS.BG_BEIGE)
+    surface.fill(COLORS["BG_BEIGE"])
     apply_gravity(atoms)
     apply_speed(atoms, 1/tick)
     update_atoms(atoms, 1/tick)
@@ -40,4 +40,3 @@ while True:
             sys.exit()
     pygame.display.update()
     clock.tick(FPS)
-
